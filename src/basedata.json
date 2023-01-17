@@ -1,0 +1,12 @@
+{
+  "entity_limits": {
+    "movers": 1000,
+    "crafters": 100,
+    "constructions": 100
+  },
+
+  "recipes": {
+    "crafter": { "metal": 10 },
+    "processing unit": { "silicon": 5 }
+  }
+}
