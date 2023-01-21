@@ -9,41 +9,31 @@ let ctx: OffscreenCanvasRenderingContext2D;
 const PI2 = 2 * Math.PI;
 
 self.onmessage = async (msg) => {
-  const { _canvas, _dimensions, _entities } = msg.data;
+  const { _canvas, _dimensions, _entities, _selected } = msg.data;
 
   if (_canvas) {
     canvas = _canvas;
-    ctx = canvas.getContext("2d")! as OffscreenCanvasRenderingContext2D;
+    ctx = canvas.getContext("2d", {
+      alpha: true,
+    })! as OffscreenCanvasRenderingContext2D;
+  }
 
-    fixSize(_dimensions);
-  }
-  if (_dimensions) {
-    fixSize(_dimensions);
-  }
+  if (_dimensions) fixSize(_dimensions);
 
   if (!ctx || !_entities) return;
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  ctx.beginPath();
-  ctx.fillStyle = "#FFFFFF";
-
-  const movers: Mover[] = _entities["movers"];
-  batchUpdateMovers(movers);
-
-  const crafters: Crafter[] = _entities["crafters"];
-  batchRenderCrafters(crafters);
-
-  ctx.fill();
-
-  self.postMessage({ text: "worker" });
+  batchUpdateMovers(_entities.movers, "#FFFFFF");
+  if (_selected) batchUpdateMovers(_selected, "#00FF00");
 };
 
-function batchUpdateMovers(movers: Mover[]) {
-  if (!movers) return;
-
+function batchUpdateMovers(movers: Mover[], color: string) {
   let _x: number;
   let _y: number;
+
+  ctx.beginPath();
+  ctx.fillStyle = color;
 
   movers.forEach((mover) => {
     _x = Math.round(mover.pos.x);
@@ -52,15 +42,9 @@ function batchUpdateMovers(movers: Mover[]) {
     ctx.moveTo(_x + 5, _y);
     ctx.arc(_x, _y, 5, 0, PI2);
   });
-}
-function batchRenderCrafters(crafters: Crafter[]) {
-  if (!crafters) return;
 
-  crafters.forEach((crafter) => {
-    ctx.moveTo(crafter.pos.x + 50, crafter.pos.y);
-    ctx.rect(crafter.pos.x, crafter.pos.y, 50, 50);
-    // ctx.arc(crafter.pos.x, crafter.pos.y, crafter.range, 0, PI2);
-  });
+  ctx.fill();
+  ctx.closePath();
 }
 
 interface canvasDimensions {
@@ -70,7 +54,12 @@ interface canvasDimensions {
 }
 
 function fixSize(dimensions: canvasDimensions) {
-  canvas.width = Math.floor(dimensions.width * dimensions.dpi);
-  canvas.height = Math.floor(dimensions.height * dimensions.dpi);
-  ctx.scale(dimensions.dpi, dimensions.dpi);
+  if (!canvas) return;
+
+  const { width, height, dpi } = dimensions;
+
+  canvas.width = width;
+  canvas.height = height;
+
+  ctx.scale(dpi, dpi);
 }

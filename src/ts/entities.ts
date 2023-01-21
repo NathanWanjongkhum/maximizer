@@ -29,20 +29,26 @@ export class Client {
     this.filter = [];
   }
 
-  request(order: string, items?: Stack[]) {
+  transfer(order: string, items: Stack[]) {
     switch (order) {
       case "recieve":
+        if (!items) return;
+
+        items.forEach((item) => {
+          const stack = this.inventory.find((i) => i.type === item.type);
+        });
         break;
       case "deposit":
+        if (!items) return;
+
+        items.forEach((item) => {
+          const stack = this.inventory.find((i) => i.type === item.type);
+        });
         break;
 
       default:
         break;
     }
-    return this;
-  }
-  transfer(items: Stack[]) {
-    return this;
   }
 }
 
@@ -56,6 +62,7 @@ export class Mover {
   inventory: Stack[];
   capacity: number;
   speed: number;
+  selected: boolean;
 
   constructor(x: number, y: number) {
     this.pos = { x, y };
@@ -68,6 +75,8 @@ export class Mover {
 
     this.capacity = 1;
     this.speed = 500;
+
+    this.selected = false;
   }
 
   update(dt: number) {
@@ -78,9 +87,7 @@ export class Mover {
 
     const client = this.currentTask.client;
     if (this.inRange(client)) {
-      client
-        .request(this.currentTask.order, this.inventory)
-        .transfer(this.inventory);
+      client.transfer(this.currentTask.order, this.inventory);
 
       const id = (this.tasks.indexOf(this.currentTask) + 1) % this.tasks.length;
 
