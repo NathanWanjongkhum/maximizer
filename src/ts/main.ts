@@ -25,12 +25,15 @@ let selectionRect = {
 let selection: Entity[] = [];
 let drag = false;
 
+let isPlaying: boolean = true;
+
 // Lists
 let entities: Record<string, Entity[]> = {
   movers: new Array<Mover>(),
   crafters: new Array<Crafter>(),
   constructions: new Array<Construction>(),
 };
+
 // Cache
 
 export function init(
@@ -58,10 +61,10 @@ export function init(
       const point = getMousePos(this, e);
       entities.crafters.find((crafter) => {
         let crafterRect = {
-          x: crafter.pos.x,
-          y: crafter.pos.y,
-          width: 50,
-          height: 50,
+          startX: crafter.pos.x,
+          startY: crafter.pos.y,
+          endX: crafter.pos.x + 50,
+          endY: crafter.pos.y + 50,
         };
 
         if (pointInRect(point, crafterRect)) selection.push(crafter);
@@ -78,20 +81,14 @@ export function init(
     "mouseup",
     function (e) {
       (entities.movers as Mover[]).forEach((mover) => {
-        let moverRect = {
-          startX: mover.x,
-          startY: mover.y,
-          endX: mover.x + 5,
-          endY: mover.y + 5,
-        };
-
-        if (checkRectCollision(selectionRect, moverRect)) selection.push(mover);
+        if (pointInRect({ x: mover.pos.x, y: mover.pos.y }, selectionRect))
+          selection.push(mover);
       });
 
-      oCtx.clearRect(0, 0, this.width, this.height);
+      clearSelectionArea();
 
       drag = false;
-      console.log(selection);
+      // console.log(selection);
     },
     false
   );
@@ -101,8 +98,11 @@ export function init(
       if (drag) {
         const { x: x, y: y } = getMousePos(this, e);
 
+        clearSelectionArea();
+
         selectionRect.endX = x;
         selectionRect.endY = y;
+
         drawSelectionArea();
       }
     },
@@ -111,13 +111,17 @@ export function init(
 
   // Adds global canvas fix
   window.addEventListener("resize", fixSize, false);
+  document.addEventListener(
+    "visibilitychange",
+    () => (isPlaying = document.visibilityState == "visible")
+  );
 
   // Load data
   initCrafter("processing unit", 500, 500);
   initCrafter("processing unit", 200, 100);
   // entities.crafters[0].inventory = [{ type: "metal", quantity: 100 }];
 
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 1; i++) {
     initMover(400 + i * 10, 50 + ((i * 10) % 300));
 
     const mover = (entities["movers"] as Mover[])[i];
@@ -175,8 +179,10 @@ function initMover(x: number, y: number) {
 function tick(timestamp: number, lastUpdate: number) {
   const deltaTime = (timestamp - lastUpdate) / 1000;
 
-  update(deltaTime);
-  render();
+  if (isPlaying) {
+    update(deltaTime);
+    render();
+  }
 
   requestAnimationFrame((_timestamp) => tick(_timestamp, timestamp));
 }
@@ -185,7 +191,11 @@ function update(dt: number) {
   (entities["movers"] as Mover[]).forEach((mover) => mover.update(dt));
 }
 function render() {
-  if (selection.every((entity) => entity instanceof Mover)) {
+  if (
+    selection.length &&
+    selection.every((entity) => entity instanceof Mover)
+  ) {
+    console.log("pass");
     worker.postMessage({ _entities: entities, _selected: selection });
   } else {
     worker.postMessage({ _entities: entities });
@@ -215,15 +225,34 @@ function batchRenderCrafters() {
   sCtx.closePath();
 }
 
+function clearSelectionArea() {
+  let xbuffer =
+    Math.floor(selectionRect.endX - selectionRect.startX) >= 0 ? 2 : -2;
+  let ybuffer =
+    Math.floor(selectionRect.endY - selectionRect.startY) >= 0 ? 2 : -2;
+
+  oCtx.clearRect(
+    selectionRect.startX + xbuffer,
+    selectionRect.startY + ybuffer,
+    selectionRect.endX - selectionRect.startX + xbuffer,
+    selectionRect.endY - selectionRect.startY + ybuffer
+  );
+}
 function drawSelectionArea() {
+  console.log(
+    "draw: ",
+    Math.floor(selectionRect.startX),
+    Math.floor(selectionRect.startY),
+    Math.floor(selectionRect.endX - selectionRect.startX),
+    Math.floor(selectionRect.endY - selectionRect.startY)
+  );
   oCtx.fillStyle = "rgba(0, 255, 0, 0.5)";
-  oCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
   oCtx.beginPath();
   oCtx.rect(
-    selectionRect.startX,
-    selectionRect.startY,
-    selectionRect.endX - selectionRect.startX,
-    selectionRect.endY - selectionRect.startY
+    Math.floor(selectionRect.startX),
+    Math.floor(selectionRect.startY),
+    Math.floor(selectionRect.endX - selectionRect.startX),
+    Math.floor(selectionRect.endY - selectionRect.startY)
   );
   oCtx.fill();
 }
@@ -279,12 +308,12 @@ function checkRectCollision(
 }
 function pointInRect(
   point: { x: number; y: number },
-  rect: { x: number; y: number; width: number; height: number }
+  rect: { startX: number; startY: number; endX: number; endY: number }
 ): boolean {
   return (
-    point.x >= rect.x &&
-    point.x <= rect.x + rect.width &&
-    point.y >= rect.y &&
-    point.y <= rect.y + rect.height
+    point.x >= rect.startX &&
+    point.x <= rect.endX &&
+    point.y >= rect.startY &&
+    point.y <= rect.endY
   );
 }
